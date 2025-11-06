@@ -172,7 +172,7 @@ impl LunarFestival {
       let solar_term: SolarTerm = SolarTerm::from_index(year, term_index as isize);
       let di: &str = &data[1..3];
       let index: usize = usize::from_str(di).unwrap();
-      let lunar_day: LunarDay = solar_term.get_julian_day().get_solar_day().get_lunar_day();
+      let lunar_day: LunarDay = solar_term.get_solar_day().get_lunar_day();
       if lunar_day.get_year() == year && lunar_day.get_month() == month && lunar_day.get_day() == day {
         return Some(Self {
           festival_type: FestivalType::TERM,
@@ -232,7 +232,7 @@ impl LunarFestival {
           let solar_term: SolarTerm = SolarTerm::from_index(year, term_index as isize);
           let di: &str = &data[1..3];
           let index: usize = usize::from_str(di).unwrap();
-          let lunar_day: LunarDay = solar_term.get_julian_day().get_solar_day().get_lunar_day();
+          let lunar_day: LunarDay = solar_term.get_solar_day().get_lunar_day();
           Some(Self {
             festival_type: FestivalType::TERM,
             day: lunar_day,

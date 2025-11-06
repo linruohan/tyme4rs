@@ -8,7 +8,7 @@ use crate::tyme::culture::Duty;
 use crate::tyme::eightchar::provider::{ChildLimitProvider, DefaultChildLimitProvider};
 use crate::tyme::enums::{Gender, YinYang};
 use crate::tyme::lunar::LunarYear;
-use crate::tyme::sixtycycle::{EarthBranch, HeavenStem, SixtyCycle, SixtyCycleYear};
+use crate::tyme::sixtycycle::{EarthBranch, HeavenStem, SixtyCycle, SixtyCycleYear, ThreePillars};
 use crate::tyme::solar::{SolarDay, SolarTerm, SolarTime};
 
 pub mod provider;
@@ -16,47 +16,41 @@ pub mod provider;
 /// 八字
 #[derive(Debug, Clone)]
 pub struct EightChar {
-  year: SixtyCycle,
-  month: SixtyCycle,
-  day: SixtyCycle,
+  three_pillars: ThreePillars,
   hour: SixtyCycle,
 }
 
 impl Culture for EightChar {
   fn get_name(&self) -> String {
-    format!("{} {} {} {}", self.year, self.month, self.day, self.hour)
+    format!("{} {}", self.three_pillars, self.hour)
   }
 }
 
 impl EightChar {
   pub fn new(year: &str, month: &str, day: &str, hour: &str) -> Self {
     Self {
-      year: SixtyCycle::from_name(year),
-      month: SixtyCycle::from_name(month),
-      day: SixtyCycle::from_name(day),
+      three_pillars: ThreePillars::new(year, month, day),
       hour: SixtyCycle::from_name(hour),
     }
   }
 
   pub fn from_sixty_cycle(year: SixtyCycle, month: SixtyCycle, day: SixtyCycle, hour: SixtyCycle) -> Self {
     Self {
-      year,
-      month,
-      day,
+      three_pillars: ThreePillars::from_sixty_cycle(year, month, day),
       hour,
     }
   }
 
   pub fn get_year(&self) -> SixtyCycle {
-    self.year.clone()
+    self.three_pillars.get_year()
   }
 
   pub fn get_month(&self) -> SixtyCycle {
-    self.month.clone()
+    self.three_pillars.get_month()
   }
 
   pub fn get_day(&self) -> SixtyCycle {
-    self.day.clone()
+    self.three_pillars.get_day()
   }
 
   pub fn get_hour(&self) -> SixtyCycle {
@@ -64,15 +58,17 @@ impl EightChar {
   }
 
   pub fn get_fetal_origin(&self) -> SixtyCycle {
-    SixtyCycle::from_name(format!("{}{}", self.month.get_heaven_stem().next(1).get_name(), self.month.get_earth_branch().next(3).get_name()).as_str())
+    let m: SixtyCycle = self.get_month();
+    SixtyCycle::from_name(format!("{}{}", m.get_heaven_stem().next(1).get_name(), m.get_earth_branch().next(3).get_name()).as_str())
   }
 
   pub fn get_fetal_breath(&self) -> SixtyCycle {
-    SixtyCycle::from_name(format!("{}{}", self.day.get_heaven_stem().next(5).get_name(), EarthBranch::from_index(13 - (self.day.get_earth_branch().get_index() as isize)).get_name()).as_str())
+    let d: SixtyCycle = self.get_day();
+    SixtyCycle::from_name(format!("{}{}", d.get_heaven_stem().next(5).get_name(), EarthBranch::from_index(13 - (d.get_earth_branch().get_index() as isize)).get_name()).as_str())
   }
 
   pub fn get_own_sign(&self) -> SixtyCycle {
-    let mut m: isize = self.month.get_earth_branch().get_index() as isize - 1;
+    let mut m: isize = self.get_month().get_earth_branch().get_index() as isize - 1;
     if m < 1 {
       m += 12;
     }
@@ -82,11 +78,11 @@ impl EightChar {
     }
     let mut offset: isize = m + h;
     offset = if offset >= 14 { 26 } else { 14 } - offset;
-    SixtyCycle::from_name(format!("{}{}", HeavenStem::from_index(((self.year.get_heaven_stem().get_index() as isize) + 1) * 2 + offset - 1).get_name(), EarthBranch::from_index(offset + 1).get_name()).as_str())
+    SixtyCycle::from_name(format!("{}{}", HeavenStem::from_index(((self.get_year().get_heaven_stem().get_index() as isize) + 1) * 2 + offset - 1).get_name(), EarthBranch::from_index(offset + 1).get_name()).as_str())
   }
 
   pub fn get_body_sign(&self) -> SixtyCycle {
-    let mut offset: isize = self.month.get_earth_branch().get_index() as isize - 1;
+    let mut offset: isize = self.get_month().get_earth_branch().get_index() as isize - 1;
     if offset < 1 {
       offset += 12;
     }
@@ -94,24 +90,27 @@ impl EightChar {
     if offset > 12 {
       offset -= 12;
     }
-    SixtyCycle::from_name(format!("{}{}", HeavenStem::from_index(((self.year.get_heaven_stem().get_index() as isize) + 1) * 2 + offset - 1).get_name(), EarthBranch::from_index(offset + 1).get_name()).as_str())
+    SixtyCycle::from_name(format!("{}{}", HeavenStem::from_index(((self.get_year().get_heaven_stem().get_index() as isize) + 1) * 2 + offset - 1).get_name(), EarthBranch::from_index(offset + 1).get_name()).as_str())
   }
 
   #[deprecated(since = "1.3.0", note = "please use SixtyCycleDay.get_duty() instead")]
   pub fn get_duty(&self) -> Duty {
-    Duty::from_index((self.day.get_earth_branch().get_index() as isize) - (self.month.get_earth_branch().get_index() as isize))
+    Duty::from_index((self.get_day().get_earth_branch().get_index() as isize) - (self.get_month().get_earth_branch().get_index() as isize))
   }
 
   pub fn get_solar_times(&self, start_year: isize, end_year: isize) -> Vec<SolarTime> {
     let mut l: Vec<SolarTime> = Vec::new();
+    let year: SixtyCycle = self.get_year();
+    let month: SixtyCycle = self.get_month();
+    let day: SixtyCycle = self.get_day();
     // 月地支距寅月的偏移值
-    let mut m: isize = self.month.get_earth_branch().next(-2).get_index() as isize;
+    let mut m: isize = month.get_earth_branch().next(-2).get_index() as isize;
     // 月天干要一致
-    if HeavenStem::from_index((self.year.get_heaven_stem().get_index() as isize + 1) * 2 + m) != self.month.get_heaven_stem() {
+    if HeavenStem::from_index((year.get_heaven_stem().get_index() as isize + 1) * 2 + m) != month.get_heaven_stem() {
       return l;
     }
     // 1年的立春是辛酉，序号57
-    let mut y: isize = self.year.next(-57).get_index() as isize + 1;
+    let mut y: isize = year.next(-57).get_index() as isize + 1;
     // 节令偏移值
     m *= 2;
     // 时辰地支转时刻
@@ -136,7 +135,7 @@ impl EightChar {
       if solar_time.get_year() >= start_year {
         // 日干支和节令干支的偏移值
         let mut solar_day: SolarDay = solar_time.get_solar_day();
-        let d: isize = self.day.next(-(solar_day.get_lunar_day().get_sixty_cycle().get_index() as isize)).get_index() as isize;
+        let d: isize = day.next(-(solar_day.get_lunar_day().get_sixty_cycle().get_index() as isize)).get_index() as isize;
         if d > 0 {
           // 从节令推移天数
           solar_day = solar_day.next(d);
@@ -540,5 +539,10 @@ mod tests {
 
     let d: ChildLimit = ChildLimit::from_solar_time(SolarTime::from_ymd_hms(1989, 12, 31, 23, 7, 17), Gender::MAN);
     assert_eq!("1998年3月1日 19:47:17", d.get_end_time().to_string());
+  }
+
+  #[test]
+  fn test1() {
+    assert_eq!("甲戌 癸酉 甲戌 甲戌", SolarTime::from_ymd_hms(1034, 10, 2, 20, 0, 0).get_lunar_hour().get_eight_char().to_string());
   }
 }

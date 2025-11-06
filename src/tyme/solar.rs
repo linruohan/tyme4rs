@@ -1059,10 +1059,10 @@ impl SolarDay {
       i = 0;
     }
     let mut term: SolarTerm = SolarTerm::from_index(y, i as isize);
-    let mut day: SolarDay = term.get_julian_day().get_solar_day();
+    let mut day: SolarDay = term.get_solar_day();
     while self.is_before(day) {
       term = term.next(-1);
-      day = term.get_julian_day().get_solar_day();
+      day = term.get_solar_day();
     }
     SolarTermDay::new(term, self.subtract(day) as usize)
   }
@@ -1204,7 +1204,7 @@ impl SolarDay {
   pub fn get_dog_day(&self) -> Option<DogDay> {
     let xia_zhi: SolarTerm = SolarTerm::from_index(self.get_year(), 12);
     // 第1个庚日
-    let mut start: SolarDay = xia_zhi.get_julian_day().get_solar_day();
+    let mut start: SolarDay = xia_zhi.get_solar_day();
     // 第3个庚日，即初伏第1天
     let parent: LoopTyme = start.get_lunar_day().get_sixty_cycle().get_heaven_stem().into();
     start = start.next(parent.steps_to(6) as isize + 20);
@@ -1226,7 +1226,7 @@ impl SolarDay {
     start = start.next(10);
     days = self.subtract(start);
     // 立秋
-    if xia_zhi.next(3).get_julian_day().get_solar_day().is_after(start) {
+    if xia_zhi.next(3).get_solar_day().is_after(start) {
       if days < 10 {
         return Some(DogDay::new(Dog::from_index(1), days as usize + 10));
       }
@@ -1251,9 +1251,9 @@ impl SolarDay {
   /// ```
   pub fn get_nine_day(&self) -> Option<NineDay> {
     let year: isize = self.get_year();
-    let mut start: SolarDay = SolarTerm::from_index(year + 1, 0).get_julian_day().get_solar_day();
+    let mut start: SolarDay = SolarTerm::from_index(year + 1, 0).get_solar_day();
     if self.is_before(start) {
-      start = SolarTerm::from_index(year, 0).get_julian_day().get_solar_day();
+      start = SolarTerm::from_index(year, 0).get_solar_day();
     }
     let end: SolarDay = start.next(81);
     if self.is_before(start) || !self.is_before(end) {
@@ -1296,7 +1296,7 @@ impl SolarDay {
     if term.is_qi() {
       term = term.next(-1);
     }
-    let mut day_index: usize = self.subtract(term.get_julian_day().get_solar_day()) as usize;
+    let mut day_index: usize = self.subtract(term.get_solar_day()) as usize;
     let start_index: usize = (term.get_index() - 1) * 3;
     let data: &str = &"93705542220504xx1513904541632524533533105544806564xx7573304542018584xx95"[start_index..start_index + 6];
     let mut days: usize = 0;
@@ -1323,13 +1323,13 @@ impl SolarDay {
   pub fn get_plum_rain_day(&self) -> Option<PlumRainDay> {
     // 芒种
     let grain_in_ear: SolarTerm = SolarTerm::from_index(self.get_year(), 11);
-    let mut start: SolarDay = grain_in_ear.get_julian_day().get_solar_day();
+    let mut start: SolarDay = grain_in_ear.get_solar_day();
     // 芒种后的第1个丙日
     let mut parent: LoopTyme = start.get_lunar_day().get_sixty_cycle().get_heaven_stem().into();
     start = start.next(parent.steps_to(2) as isize);
 
     // 小暑
-    let mut end: SolarDay = grain_in_ear.next(2).get_julian_day().get_solar_day();
+    let mut end: SolarDay = grain_in_ear.next(2).get_solar_day();
     // 小暑后的第1个未日
     parent = end.get_lunar_day().get_sixty_cycle().get_earth_branch().into();
     end = end.next(parent.steps_to(7) as isize);
@@ -1665,7 +1665,7 @@ pub struct SolarTerm {
   parent: LoopTyme,
   /// 年
   year: isize,
-  /// 粗略的儒略日
+  /// 儒略日（用于日历，只精确到日中午12:00）
   cursory_julian_day: f64,
 }
 
@@ -1760,7 +1760,7 @@ impl SolarTerm {
     self.get_index() % 2 == 0
   }
 
-  /// 儒略日
+  /// 儒略日（精确到秒）
   ///
   /// # 示例
   ///
@@ -1776,12 +1776,27 @@ impl SolarTerm {
     JulianDay::from_julian_day(ShouXingUtil::qi_accurate2(self.cursory_julian_day) + J2000)
   }
 
+  /// 公历日（用于日历）
+  ///
+  /// # 示例
+  ///
+  /// ```
+  /// use tyme4rs::tyme::solar::{SolarDay, SolarTerm};
+  ///
+  /// let term: SolarTerm = SolarDay::from_ymd(2024, 10, 1).get_term();
+  ///
+  /// let day: SolarDay = term.get_solar_day();
+  /// ```
+  pub fn get_solar_day(&self) -> SolarDay {
+    JulianDay::from_julian_day(self.cursory_julian_day + J2000).get_solar_day()
+  }
+
   /// 年
   pub fn get_year(&self) -> isize {
     self.year
   }
 
-  /// 粗略的儒略日
+  /// 儒略日（用于日历，只精确到日中午12:00）
   ///
   /// # 示例
   ///
@@ -2085,24 +2100,28 @@ mod tests {
     assert_eq!(0, dong_zhi.get_index());
     // 公历日
     assert_eq!("2022年12月22日", dong_zhi.get_julian_day().get_solar_day().to_string());
+    assert_eq!("2022年12月22日", dong_zhi.get_solar_day().to_string());
 
     // 冬至顺推23次，就是大雪 2023-12-07 17:32:55
     let da_xue: SolarTerm = dong_zhi.next(23);
     assert_eq!("大雪", da_xue.get_name());
     assert_eq!(23, da_xue.get_index());
     assert_eq!("2023年12月7日", da_xue.get_julian_day().get_solar_day().to_string());
+    assert_eq!("2023年12月7日", da_xue.get_solar_day().to_string());
 
     // 冬至逆推2次，就是上一年的小雪 2022-11-22 16:20:28
     let xiao_xue: SolarTerm = dong_zhi.next(-2);
     assert_eq!("小雪", xiao_xue.get_name());
     assert_eq!(22, xiao_xue.get_index());
     assert_eq!("2022年11月22日", xiao_xue.get_julian_day().get_solar_day().to_string());
+    assert_eq!("2022年11月22日", xiao_xue.get_solar_day().to_string());
 
     // 冬至顺推24次，就是下一个冬至 2023-12-22 11:27:20
     let dong_zhi2: SolarTerm = dong_zhi.next(24);
     assert_eq!("冬至", dong_zhi2.get_name());
     assert_eq!(0, dong_zhi2.get_index());
     assert_eq!("2023年12月22日", dong_zhi2.get_julian_day().get_solar_day().to_string());
+    assert_eq!("2023年12月22日", dong_zhi2.get_solar_day().to_string());
   }
 
   #[test]
@@ -2122,6 +2141,7 @@ mod tests {
     assert_eq!(23, jq.get_index());
     // 公历
     assert_eq!("2023年12月7日", jq.get_julian_day().get_solar_day().to_string());
+    assert_eq!("2023年12月7日", jq.get_solar_day().to_string());
     // 农历
     assert_eq!("农历癸卯年十月廿五", jq.get_julian_day().get_solar_day().get_lunar_day().to_string());
     // 推移
@@ -2364,5 +2384,12 @@ mod tests {
     assert_eq!("壬水", d.get_name());
     assert_eq!(15, d.get_day_index());
     assert_eq!("壬水第16天", d.to_string());
+  }
+
+  #[test]
+  fn test74() {
+    assert_eq!("1034年10月1日", SolarTerm::from_name(1034, "寒露").get_solar_day().to_string());
+    assert_eq!("1034年10月3日", SolarTerm::from_name(1034, "寒露").get_julian_day().get_solar_day().to_string());
+    assert_eq!("1034年10月3日 06:02:28", SolarTerm::from_name(1034, "寒露").get_julian_day().get_solar_time().to_string());
   }
 }

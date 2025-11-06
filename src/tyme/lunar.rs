@@ -16,7 +16,7 @@ use crate::tyme::eightchar::EightChar;
 use crate::tyme::eightchar::provider::{DefaultEightCharProvider, EightCharProvider};
 use crate::tyme::festival::LunarFestival;
 use crate::tyme::jd::{J2000, JulianDay};
-use crate::tyme::sixtycycle::{EarthBranch, HeavenStem, SixtyCycle, SixtyCycleDay, SixtyCycleHour};
+use crate::tyme::sixtycycle::{EarthBranch, HeavenStem, SixtyCycle, SixtyCycleDay, SixtyCycleHour, ThreePillars};
 use crate::tyme::solar::{SolarDay, SolarTerm, SolarTime};
 use crate::tyme::util::ShouXingUtil;
 
@@ -907,12 +907,13 @@ impl LunarDay {
     LunarFestival::from_ymd(self.get_year(), self.get_month(), self.day)
   }
 
+  /// 九星
   pub fn get_nine_star(&self) -> NineStar {
     let solar: SolarDay = self.get_solar_day();
     let dong_zhi: SolarTerm = SolarTerm::from_index(solar.get_year(), 0);
-    let dong_zhi_solar: SolarDay = dong_zhi.get_julian_day().get_solar_day();
-    let xia_zhi_solar: SolarDay = dong_zhi.next(12).get_julian_day().get_solar_day();
-    let dong_zhi_solar2: SolarDay = dong_zhi.next(24).get_julian_day().get_solar_day();
+    let dong_zhi_solar: SolarDay = dong_zhi.get_solar_day();
+    let xia_zhi_solar: SolarDay = dong_zhi.next(12).get_solar_day();
+    let dong_zhi_solar2: SolarDay = dong_zhi.next(24).get_solar_day();
     let dong_zhi_index: isize = dong_zhi_solar.get_lunar_day().get_sixty_cycle().get_index() as isize;
     let xia_zhi_index: isize = xia_zhi_solar.get_lunar_day().get_sixty_cycle().get_index() as isize;
     let dong_zhi_index2: isize = dong_zhi_solar2.get_lunar_day().get_sixty_cycle().get_index() as isize;
@@ -947,10 +948,12 @@ impl LunarDay {
     self.get_sixty_cycle_day().get_gods()
   }
 
+  /// 宜
   pub fn get_recommends(&self) -> Vec<Taboo> {
     self.get_sixty_cycle_day().get_recommends()
   }
 
+  /// 忌
   pub fn get_avoids(&self) -> Vec<Taboo> {
     self.get_sixty_cycle_day().get_avoids()
   }
@@ -958,6 +961,11 @@ impl LunarDay {
   /// 小六壬
   pub fn get_minor_ren(&self) -> MinorRen {
     self.get_lunar_month().get_minor_ren().next(self.day as isize - 1)
+  }
+
+  /// 三柱
+  pub fn get_three_pillars(&self) -> ThreePillars {
+    self.get_sixty_cycle_day().get_three_pillars()
   }
 }
 

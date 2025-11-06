@@ -651,7 +651,7 @@ impl SixtyCycleMonth {
   }
 
   pub fn get_first_day(&self) -> SixtyCycleDay {
-    SixtyCycleDay::from_solar_day(SolarTerm::from_index(self.year.get_year(), 3 + self.get_index_in_year() as isize * 2).get_julian_day().get_solar_day())
+    SixtyCycleDay::from_solar_day(SolarTerm::from_index(self.year.get_year(), 3 + self.get_index_in_year() as isize * 2).get_solar_day())
   }
 
   pub fn get_days(&self) -> Vec<SixtyCycleDay> {
@@ -722,7 +722,7 @@ impl Culture for SixtyCycleDay {
 impl SixtyCycleDay {
   pub fn from_solar_day(solar_day: SolarDay) -> Self {
     let solar_year: isize = solar_day.get_year();
-    let spring_solar_day: SolarDay = SolarTerm::from_index(solar_year, 3).get_julian_day().get_solar_day();
+    let spring_solar_day: SolarDay = SolarTerm::from_index(solar_year, 3).get_solar_day();
     let lunar_day: LunarDay = solar_day.get_lunar_day();
     let mut lunar_year: LunarYear = lunar_day.get_lunar_month().get_lunar_year();
     if lunar_year.get_year() == solar_year {
@@ -736,7 +736,7 @@ impl SixtyCycleDay {
     }
     let term: SolarTerm = solar_day.get_term();
     let mut index: isize = term.get_index() as isize - 3;
-    if index < 0 && term.get_julian_day().get_solar_day().is_after(spring_solar_day) {
+    if index < 0 && term.get_solar_day().is_after(spring_solar_day) {
       index += 24;
     }
     Self {
@@ -803,12 +803,13 @@ impl SixtyCycleDay {
     FetusDay::from_sixty_cycle_day(self.clone())
   }
 
+  /// 九星
   pub fn get_nine_star(&self) -> NineStar {
     let d: SolarDay = self.solar_day;
     let dong_zhi: SolarTerm = SolarTerm::from_index(d.get_year(), 0);
-    let dong_zhi_solar: SolarDay = dong_zhi.get_julian_day().get_solar_day();
-    let xia_zhi_solar: SolarDay = dong_zhi.next(12).get_julian_day().get_solar_day();
-    let dong_zhi_solar2: SolarDay = dong_zhi.next(24).get_julian_day().get_solar_day();
+    let dong_zhi_solar: SolarDay = dong_zhi.get_solar_day();
+    let xia_zhi_solar: SolarDay = dong_zhi.next(12).get_solar_day();
+    let dong_zhi_solar2: SolarDay = dong_zhi.next(24).get_solar_day();
     let dong_zhi_index: isize = dong_zhi_solar.get_lunar_day().get_sixty_cycle().get_index() as isize;
     let xia_zhi_index: isize = xia_zhi_solar.get_lunar_day().get_sixty_cycle().get_index() as isize;
     let dong_zhi_index2: isize = dong_zhi_solar2.get_lunar_day().get_sixty_cycle().get_index() as isize;
@@ -845,12 +846,19 @@ impl SixtyCycleDay {
     God::get_day_gods(self.get_month(), self.get_sixty_cycle())
   }
 
+  /// 宜
   pub fn get_recommends(&self) -> Vec<Taboo> {
     Taboo::get_day_recommends(self.get_month(), self.get_sixty_cycle())
   }
 
+  /// 忌
   pub fn get_avoids(&self) -> Vec<Taboo> {
     Taboo::get_day_avoids(self.get_month(), self.get_sixty_cycle())
+  }
+
+  /// 三柱
+  pub fn get_three_pillars(&self) -> ThreePillars {
+    ThreePillars::from_sixty_cycle(self.get_year(), self.get_month(), self.get_sixty_cycle())
   }
 }
 
@@ -1008,10 +1016,110 @@ impl PartialEq for SixtyCycleHour {
 
 impl Eq for SixtyCycleHour {}
 
+/// 三柱（年柱、月柱、日柱）
+#[derive(Debug, Clone)]
+pub struct ThreePillars {
+  year: SixtyCycle,
+  month: SixtyCycle,
+  day: SixtyCycle,
+}
+
+impl Culture for ThreePillars {
+  fn get_name(&self) -> String {
+    format!("{} {} {}", self.year, self.month, self.day)
+  }
+}
+
+impl ThreePillars {
+  pub fn new(year: &str, month: &str, day: &str) -> Self {
+    Self {
+      year: SixtyCycle::from_name(year),
+      month: SixtyCycle::from_name(month),
+      day: SixtyCycle::from_name(day),
+    }
+  }
+
+  pub fn from_sixty_cycle(year: SixtyCycle, month: SixtyCycle, day: SixtyCycle) -> Self {
+    Self {
+      year,
+      month,
+      day,
+    }
+  }
+
+  pub fn get_year(&self) -> SixtyCycle {
+    self.year.clone()
+  }
+
+  pub fn get_month(&self) -> SixtyCycle {
+    self.month.clone()
+  }
+
+  pub fn get_day(&self) -> SixtyCycle {
+    self.day.clone()
+  }
+
+  pub fn get_solar_days(&self, start_year: isize, end_year: isize) -> Vec<SolarDay> {
+    let mut l: Vec<SolarDay> = Vec::new();
+    // 月地支距寅月的偏移值
+    let mut m: isize = self.month.get_earth_branch().next(-2).get_index() as isize;
+    // 月天干要一致
+    if HeavenStem::from_index((self.year.get_heaven_stem().get_index() as isize + 1) * 2 + m) != self.month.get_heaven_stem() {
+      return l;
+    }
+    // 1年的立春是辛酉，序号57
+    let mut y: isize = self.year.next(-57).get_index() as isize + 1;
+    // 节令偏移值
+    m *= 2;
+    let base_year: isize = start_year - 1;
+    if base_year > y {
+      y += 60 * ((base_year - y) as f64 / 60.0).ceil() as isize;
+    }
+    while y <= end_year {
+      // 立春为寅月的开始
+      let mut term: SolarTerm = SolarTerm::from_index(y, 3);
+      // 节令推移，年干支和月干支就都匹配上了
+      if m > 0 {
+        term = term.next(m);
+      }
+      let mut solar_day: SolarDay = term.get_solar_day();
+      if solar_day.get_year() >= start_year {
+        // 日干支和节令干支的偏移值
+        let d: isize = self.day.next(-(solar_day.get_lunar_day().get_sixty_cycle().get_index() as isize)).get_index() as isize;
+        if d > 0 {
+          // 从节令推移天数
+          solar_day = solar_day.next(d);
+        }
+        // 验证一下
+        if solar_day.get_sixty_cycle_day().get_three_pillars() == *self {
+          l.push(solar_day);
+        }
+      }
+      y += 60;
+    }
+    l
+  }
+}
+
+impl Display for ThreePillars {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.get_name())
+  }
+}
+
+impl PartialEq for ThreePillars {
+  fn eq(&self, other: &Self) -> bool {
+    self.get_name() == other.get_name()
+  }
+}
+
+impl Eq for ThreePillars {}
+
 #[cfg(test)]
 mod tests {
   use crate::tyme::Culture;
   use crate::tyme::sixtycycle::{EarthBranch, HeavenStem, SixtyCycle};
+  use crate::tyme::solar::SolarDay;
 
   #[test]
   fn test1() {
@@ -1080,5 +1188,10 @@ mod tests {
   fn test11() {
     assert_eq!("长生", HeavenStem::from_name("丙").get_terrain(EarthBranch::from_name("寅")).get_name());
     assert_eq!("沐浴", HeavenStem::from_name("辛").get_terrain(EarthBranch::from_name("亥")).get_name());
+  }
+
+  #[test]
+  fn test12() {
+    assert_eq!("甲戌 甲戌 甲戌", SolarDay::from_ymd(1034, 10, 2).get_sixty_cycle_day().get_three_pillars().get_name());
   }
 }
